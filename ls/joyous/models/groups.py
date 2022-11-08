@@ -31,15 +31,20 @@ def get_group_model():
     if no custom model is defined.
     """
     from django.apps import apps
+
     model_string = get_group_model_string()
     try:
         return apps.get_model(model_string)
     except ValueError:
-        raise ImproperlyConfigured("JOYOUS_GROUP_MODEL must be of the form 'app_label.model_name'")
+        raise ImproperlyConfigured(
+            "JOYOUS_GROUP_MODEL must be of the form 'app_label.model_name'"
+        )
     except LookupError:
         raise ImproperlyConfigured(
-            "JOYOUS_GROUP_MODEL refers to model '%s' that has not been installed" % model_string
+            "JOYOUS_GROUP_MODEL refers to model '%s' that has not been installed"
+            % model_string
         )
+
 
 # ------------------------------------------------------------------------------
 # GroupPage
@@ -50,29 +55,37 @@ class GroupPage(Page):
         verbose_name_plural = _("group pages")
 
     # Define page_ptr so the related_name doesn't clash
-    page_ptr = models.OneToOneField(Page, on_delete=models.CASCADE,
-                                    related_name="%(app_label)s_%(model_name)s",
-                                    parent_link=True)
+    page_ptr = models.OneToOneField(
+        Page,
+        on_delete=models.CASCADE,
+        related_name="%(app_label)s_%(model_name)s",
+        parent_link=True,
+    )
 
-    subpage_types = ['joyous.SimpleEventPage',
-                     'joyous.MultidayEventPage',
-                     'joyous.RecurringEventPage',
-                     'joyous.MultidayRecurringEventPage']
+    subpage_types = [
+        "joyous.SimpleEventPage",
+        "joyous.MultidayEventPage",
+        "joyous.RecurringEventPage",
+        "joyous.MultidayRecurringEventPage",
+    ]
 
-    content = RichTextField(_("content"), default='', blank=True)
+    content = RichTextField(_("content"), default="", blank=True)
     content.help_text = _("An area of text for whatever you like")
 
     content_panels = Page.content_panels + [
-        FieldPanel('content', classname="full"),
-        ]
+        FieldPanel(
+            "content",
+        ),
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def get_context(self, request, *args, **kwargs):
         retval = super().get_context(request, *args, **kwargs)
-        retval['themeCSS'] = getattr(settings, "JOYOUS_THEME_CSS", "")
+        retval["themeCSS"] = getattr(settings, "JOYOUS_THEME_CSS", "")
         return retval
+
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

@@ -14,13 +14,17 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.translation import gettext
 from timezone_field import TimeZoneField
 from wagtail.core.models import Page, PageManager, PageViewRestriction
+
 try:
     from wagtail.query import PageQuerySet
 except ImportError:
     from wagtail.core.query import PageQuerySet
 from wagtail.core.fields import RichTextField
-from wagtail.admin.edit_handlers import (FieldPanel,
-        PageChooserPanel, BaseCompositeEditHandler)
+from wagtail.admin.edit_handlers import (
+    FieldPanel,
+    PageChooserPanel,
+    BaseCompositeEditHandler,
+)
 from wagtail.images import get_image_model_string
 from wagtail.search import index
 from wagtail.admin.forms import WagtailAdminPageForm
@@ -45,11 +49,12 @@ def _filterContentPanels(panels, remove):
         retval.append(panel)
     return retval
 
+
 # ------------------------------------------------------------------------------
 # Helper types and constants
 # ------------------------------------------------------------------------------
 class ThisEvent:
-    _fields = ('title', 'page', 'url')
+    _fields = ("title", "page", "url")
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -83,14 +88,15 @@ class ThisEvent:
     def __getitem__(self, key):
         return self._astuple()[key]
 
+
 class EventsOnDay:
     # TODO support __add__
     """
     The events that occur on a certain day.  Both events that start on that day
     and events that are still continuing.
     """
-    def __init__(self, date, holiday=None,
-                 days_events=None, continuing_events=None):
+
+    def __init__(self, date, holiday=None, days_events=None, continuing_events=None):
         if days_events is None:
             days_events = []
         if continuing_events is None:
@@ -123,19 +129,19 @@ class EventsOnDay:
         """
         return calendar.day_abbr[self.date.weekday()].lower()
 
+
 class EventsByDayList(list):
     def __init__(self, fromDate, toDate, holidays=None):
         if holidays is None:
             holidays = {}
         self.fromOrd = fromDate.toordinal()
-        self.toOrd   = toDate.toordinal()
-        days = [dt.date.fromordinal(ord)
-                for ord in range(self.fromOrd, self.toOrd+1)]
+        self.toOrd = toDate.toordinal()
+        days = [dt.date.fromordinal(ord) for ord in range(self.fromOrd, self.toOrd + 1)]
         super().__init__(EventsOnDay(day, holidays.get(day)) for day in days)
 
     def add(self, thisEvent, pageFromDate, pageToDate):
         pageFromOrd = pageFromDate.toordinal()
-        pageToOrd   = pageToDate.toordinal()
+        pageToOrd = pageToDate.toordinal()
         dayNum = pageFromOrd - self.fromOrd
         if 0 <= dayNum <= self.toOrd - self.fromOrd:
             self[dayNum].days_events.append(thisEvent)
@@ -145,11 +151,13 @@ class EventsByDayList(list):
             if 0 <= dayNum <= self.toOrd - self.fromOrd:
                 self[dayNum].continuing_events.append(thisEvent)
 
+
 # ------------------------------------------------------------------------------
 # Event models
 # ------------------------------------------------------------------------------
 class EventCategory(models.Model):
     """The category type of an event."""
+
     class Meta:
         ordering = ["name"]
         verbose_name = _("event category")
@@ -166,6 +174,7 @@ class EventCategory(models.Model):
     def __str__(self):
         return self.name
 
+
 # ------------------------------------------------------------------------------
 class EventManager(PageManager):
     def get_queryset(self):
@@ -175,15 +184,16 @@ class EventManager(PageManager):
         # a shortcut
         return self.get_queryset().auth(request)
 
+
 class EventQuerySet(PageQuerySet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.request    = None
+        self.request = None
         self.postFilter = None
 
     def _clone(self):
         qs = super()._clone()
-        qs.request    = self.request
+        qs.request = self.request
         qs.postFilter = self.postFilter
         return qs
 
@@ -212,17 +222,17 @@ class EventQuerySet(PageQuerySet):
 
     def current(self):
         qs = self._clone()
-        qs.postFilter = self.__predicateBasedOn('_current_datetime_from')
+        qs.postFilter = self.__predicateBasedOn("_current_datetime_from")
         return qs
 
     def future(self):
         qs = self._clone()
-        qs.postFilter = self.__predicateBasedOn('_future_datetime_from')
+        qs.postFilter = self.__predicateBasedOn("_future_datetime_from")
         return qs
 
     def past(self):
         qs = self._clone()
-        qs.postFilter = self.__predicateBasedOn('_past_datetime_from')
+        qs.postFilter = self.__predicateBasedOn("_past_datetime_from")
         return qs
 
     def __predicateBasedOn(self, attribute):
@@ -230,34 +240,38 @@ class EventQuerySet(PageQuerySet):
             # If used after byDay [ e.g. qry.byDay(from, to).upcoming() ] then
             # this will reject the whole days_events if just one event does not
             # match the predicate.
-            for event in getattr(item, 'days_events', [item]):
-                page = getattr(event, 'page', event)
+            for event in getattr(item, "days_events", [item]):
+                page = getattr(event, "page", event)
                 if not getattr(page, attribute, False):
                     return False
             return True
+
         return predicate
 
     def this(self):
         request = self.request
+
         class ThisIterable(ModelIterable):
             def __iter__(self):
                 for page in super().__iter__():
                     yield ThisEvent(page.title, page, page.get_url(request))
+
         qs = self._clone()
         qs._iterable_class = ThisIterable
         return qs
 
     def authorized_q(self, request):
         PASSWORD = PageViewRestriction.PASSWORD
-        LOGIN    = PageViewRestriction.LOGIN
-        GROUPS   = PageViewRestriction.GROUPS
-        KEY      = PageViewRestriction.passed_view_restrictions_session_key
+        LOGIN = PageViewRestriction.LOGIN
+        GROUPS = PageViewRestriction.GROUPS
+        KEY = PageViewRestriction.passed_view_restrictions_session_key
 
         restrictions = PageViewRestriction.objects.all()
         passed = request.session.get(KEY, [])
         if passed:
-            restrictions = restrictions.exclude(id__in=passed,
-                                                restriction_type=PASSWORD)
+            restrictions = restrictions.exclude(
+                id__in=passed, restriction_type=PASSWORD
+            )
         if request.user.is_authenticated:
             restrictions = restrictions.exclude(restriction_type=LOGIN)
         if request.user.is_superuser:
@@ -265,8 +279,9 @@ class EventQuerySet(PageQuerySet):
         else:
             membership = request.user.groups.all()
             if membership:
-                restrictions = restrictions.exclude(groups__in=membership,
-                                                    restriction_type=GROUPS)
+                restrictions = restrictions.exclude(
+                    groups__in=membership, restriction_type=GROUPS
+                )
         q = Q()
         for restriction in restrictions:
             q &= ~self.descendant_of_q(restriction.page, inclusive=True)
@@ -280,7 +295,8 @@ class EventQuerySet(PageQuerySet):
             return self.filter(self.authorized_q(request))
 
     # Possible Future feature redact unauthorized events??
-    #def redact(self, request)
+    # def redact(self, request)
+
 
 class EventPageForm(BorgPageForm):
     def clean(self):
@@ -289,64 +305,73 @@ class EventPageForm(BorgPageForm):
         return cleaned_data
 
     def _checkStartBeforeEnd(self, cleaned_data):
-        startTime = getTimeFrom(cleaned_data.get('time_from'))
-        endTime   = getTimeTo(cleaned_data.get('time_to'))
+        startTime = getTimeFrom(cleaned_data.get("time_from"))
+        endTime = getTimeTo(cleaned_data.get("time_to"))
         if startTime > endTime:
-            self.add_error('time_to', _("Event cannot end before it starts"))
+            self.add_error("time_to", _("Event cannot end before it starts"))
+
 
 # Cannot serialize: functools._lru_cache_wrapper object
 # There are some values Django cannot serialize into migration files.
 def _get_default_timezone():
     return timezone.get_default_timezone()
 
+
 class EventBase(models.Model):
     class Meta:
         abstract = True
 
-    uid = models.CharField(max_length=255, db_index=True, editable=False,
-                           default=uuid4)
-    category = models.ForeignKey(EventCategory,
-                                 related_name="+",
-                                 verbose_name=_("category"),
-                                 on_delete=models.SET_NULL,
-                                 blank=True, null=True)
-    image = models.ForeignKey(get_image_model_string(),
-                              null=True, blank=True,
-                              related_name='+',
-                              verbose_name=_("image"),
-                              on_delete=models.SET_NULL)
+    uid = models.CharField(max_length=255, db_index=True, editable=False, default=uuid4)
+    category = models.ForeignKey(
+        EventCategory,
+        related_name="+",
+        verbose_name=_("category"),
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+    )
+    image = models.ForeignKey(
+        get_image_model_string(),
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name=_("image"),
+        on_delete=models.SET_NULL,
+    )
 
     time_from = models.TimeField(_("start time"), null=True, blank=True)
     time_to = models.TimeField(_("end time"), null=True, blank=True)
-    tz = TimeZoneField(verbose_name=_("time zone"),
-                       default=_get_default_timezone)
+    tz = TimeZoneField(verbose_name=_("time zone"), default=_get_default_timezone)
 
-    group_page  = models.ForeignKey(get_group_model_string(),
-                                    null=True, blank=True,
-                                    verbose_name=_("group page"),
-                                    on_delete=models.SET_NULL)
-    details  = RichTextField(_("details"), blank=True)
+    group_page = models.ForeignKey(
+        get_group_model_string(),
+        null=True,
+        blank=True,
+        verbose_name=_("group page"),
+        on_delete=models.SET_NULL,
+    )
+    details = RichTextField(_("details"), blank=True)
     location = models.CharField(_("location"), max_length=255, blank=True)
     website = models.URLField(_("website"), blank=True)
 
     # Init these variables to prevent template DEBUG messages
     # Yes, this is very ugly.  An alternative solution would be welcome.
     cancellation_details = None
-    extra_information    = None
-    postponed_from_when  = None
+    extra_information = None
+    postponed_from_when = None
 
     search_fields = Page.search_fields + [
-        index.SearchField('location'),
-        index.SearchField('details'),
+        index.SearchField("location"),
+        index.SearchField("details"),
     ]
 
     content_panels1 = [
-        FieldPanel('details', classname="full"),
-        MapFieldPanel('location'),
-        FieldPanel('website'),
+        FieldPanel("details"),
+        MapFieldPanel("location"),
+        FieldPanel("website"),
     ]
     if getattr(settings, "JOYOUS_GROUP_SELECTABLE", False):
-        content_panels1.append(PageChooserPanel('group_page'))
+        content_panels1.append(PageChooserPanel("group_page"))
 
     # Anything inheriting from models.Model needs its own __init__ or
     # modeltranslation patch_constructor may break it
@@ -411,9 +436,9 @@ class EventBase(models.Model):
         """
         now = timezone.localtime()
         if self._getToDt() < now:
-           return "finished"
+            return "finished"
         elif self._getFromDt() < now:
-           return "started"
+            return "started"
 
     @property
     def status_text(self):
@@ -456,20 +481,22 @@ class EventBase(models.Model):
         if restrictions and request is None:
             return False
         else:
-            return all(restriction.accept_request(request)
-                       for restriction in restrictions)
+            return all(
+                restriction.accept_request(request) for restriction in restrictions
+            )
 
     def get_context(self, request, *args, **kwargs):
         retval = super().get_context(request, *args, **kwargs)
-        retval['themeCSS'] = getattr(settings, "JOYOUS_THEME_CSS", "")
+        retval["themeCSS"] = getattr(settings, "JOYOUS_THEME_CSS", "")
         return retval
 
     def _getLocalWhen(self, date_from, date_to=None):
         """
         Returns a string describing when the event occurs (in the local time zone).
         """
-        dateFrom, timeFrom = getLocalDateAndTime(date_from, self.time_from,
-                                                 self.tz, dt.time.min)
+        dateFrom, timeFrom = getLocalDateAndTime(
+            date_from, self.time_from, self.tz, dt.time.min
+        )
 
         if date_to is not None:
             dateTo, timeTo = getLocalDateAndTime(date_to, self.time_to, self.tz)
@@ -481,15 +508,20 @@ class EventBase(models.Model):
                 timeTo = None
 
         if dateFrom == dateTo:
-            retval = _("{date} {atTime}").format(date=dateFormat(dateFrom),
-                        atTime=timeFormat(timeFrom, timeTo, gettext("at ")))
+            retval = _("{date} {atTime}").format(
+                date=dateFormat(dateFrom),
+                atTime=timeFormat(timeFrom, timeTo, gettext("at ")),
+            )
         else:
-            retval = _("{date} {atTime}").format(date=dateFormat(dateFrom),
-                        atTime=timeFormat(timeFrom, prefix=gettext("at ")))
+            retval = _("{date} {atTime}").format(
+                date=dateFormat(dateFrom),
+                atTime=timeFormat(timeFrom, prefix=gettext("at ")),
+            )
             retval = _("{dateTimeFrom} to {dateTo} {atTimeTo}").format(
-                        dateTimeFrom=retval.strip(),
-                        dateTo=dateFormat(dateTo),
-                        atTimeTo=timeFormat(timeTo, prefix=gettext("at ")))
+                dateTimeFrom=retval.strip(),
+                dateTo=dateFormat(dateTo),
+                atTimeTo=timeFormat(timeTo, prefix=gettext("at ")),
+            )
         return retval.strip()
 
     def _getFromTime(self, atDate=None):
@@ -514,6 +546,7 @@ class EventBase(models.Model):
         # This is used by the default implementation of
         # _current_datetime_from
         raise NotImplementedError()
+
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
