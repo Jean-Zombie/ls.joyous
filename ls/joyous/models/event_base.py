@@ -23,7 +23,7 @@ from wagtail.fields import RichTextField
 from wagtail.admin.panels import (
     FieldPanel,
     PageChooserPanel,
-    BaseCompositeEditHandler,
+    PanelGroup,
 )
 from wagtail.images import get_image_model_string
 from wagtail.search import index
@@ -44,7 +44,7 @@ def _filterContentPanels(panels, remove):
     for panel in panels:
         if isinstance(panel, FieldPanel) and panel.field_name in remove:
             continue
-        elif isinstance(panel, BaseCompositeEditHandler):
+        elif isinstance(panel, PanelGroup):
             panel.children = _filterContentPanels(panel.children, remove)
         retval.append(panel)
     return retval
