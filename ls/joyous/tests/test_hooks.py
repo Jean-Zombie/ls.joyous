@@ -5,18 +5,17 @@ import sys
 from unittest.mock import Mock, patch
 from django.test import TestCase, RequestFactory
 from django.contrib.auth.models import User
-from wagtail.core.models import Page
+from wagtail.models import Page
 from ls.joyous.models.calendar import CalendarPage, CalendarPageForm
 from ls.joyous.wagtail_hooks import handlePageExport, stashRequest
+
 
 # ------------------------------------------------------------------------------
 class TestWagtailHooks(TestCase):
     def setUp(self):
-        self.home = Page.objects.get(slug='home')
-        self.user = User.objects.create_user('i', 'i@j.test', 's3(r3t')
-        self.page = CalendarPage(owner  = self.user,
-                                 slug  = "events",
-                                 title = "Events")
+        self.home = Page.objects.get(slug="home")
+        self.user = User.objects.create_user("i", "i@j.test", "s3(r3t")
+        self.page = CalendarPage(owner=self.user, slug="events", title="Events")
         self.home.add_child(instance=self.page)
         self.page.save_revision().publish()
 
@@ -51,8 +50,9 @@ class TestWagtailHooks(TestCase):
     def testStashRequest(self):
         request = RequestFactory().get("/test")
         stashRequest(request, self.page)
-        self.assertEqual(getattr(self.page, '__joyous_edit_request'), request)
-        delattr(self.page, '__joyous_edit_request')
+        self.assertEqual(getattr(self.page, "__joyous_edit_request"), request)
+        delattr(self.page, "__joyous_edit_request")
+
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

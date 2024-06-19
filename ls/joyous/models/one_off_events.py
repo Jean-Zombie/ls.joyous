@@ -6,8 +6,8 @@ from django.db import models
 from django.db.models.query import ModelIterable
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from wagtail.core.models import Page
-from wagtail.admin.edit_handlers import FieldPanel
+from wagtail.models import Page
+from wagtail.admin.panels import FieldPanel
 
 from ..utils.telltime import (
     todayUtc,
@@ -34,6 +34,7 @@ from .event_base import (
 # ------------------------------------------------------------------------------
 _1day = dt.timedelta(days=1)
 _2days = dt.timedelta(days=2)
+
 
 # ------------------------------------------------------------------------------
 # Event models

@@ -5,26 +5,29 @@ import sys
 import datetime as dt
 from django_bs_test import TestCase
 from django.contrib.auth.models import User
-from wagtail.core.models import Page
+from wagtail.models import Page
 from ls.joyous.models import SpecificCalendarPage
 from ls.joyous.models import SimpleEventPage, ThisEvent
+
 
 # ------------------------------------------------------------------------------
 class Test(TestCase):
     def setUp(self):
-        self.home = Page.objects.get(slug='home')
-        self.user = User.objects.create_user('i', 'i@joy.test', 's3cr3t')
-        self.calendar = SpecificCalendarPage(owner = self.user,
-                                             slug  = "events",
-                                             title = "Events")
+        self.home = Page.objects.get(slug="home")
+        self.user = User.objects.create_user("i", "i@joy.test", "s3cr3t")
+        self.calendar = SpecificCalendarPage(
+            owner=self.user, slug="events", title="Events"
+        )
         self.home.add_child(instance=self.calendar)
         self.calendar.save_revision().publish()
-        self.page = SimpleEventPage(owner = self.user,
-                                    slug   = "agfest",
-                                    title  = "AgFest",
-                                    date   = dt.date(2015,6,5),
-                                    time_from = dt.time(11),
-                                    time_to   = dt.time(17,30))
+        self.page = SimpleEventPage(
+            owner=self.user,
+            slug="agfest",
+            title="AgFest",
+            date=dt.date(2015, 6, 5),
+            time_from=dt.time(11),
+            time_to=dt.time(17, 30),
+        )
         self.calendar.add_child(instance=self.page)
         self.page.save_revision().publish()
 
@@ -40,16 +43,18 @@ class Test(TestCase):
 
     def testRepr(self):
         event = ThisEvent(self.page, url="/events/muddy/")
-        self.assertEqual(repr(event),
-                         "ThisEvent (title='AgFest', "
-                         "page=<SimpleEventPage: AgFest>, "
-                         "url='/events/muddy/')")
+        self.assertEqual(
+            repr(event),
+            "ThisEvent (title='AgFest', "
+            "page=<SimpleEventPage: AgFest>, "
+            "url='/events/muddy/')",
+        )
 
     def testPageAttrs(self):
         event = ThisEvent(self.page)
         self.assertEqual(event.title, "AgFest")
         self.assertEqual(event.slug, "agfest")
-        self.assertEqual(event.date, dt.date(2015,6,5))
+        self.assertEqual(event.date, dt.date(2015, 6, 5))
 
     def testTheseAttrs(self):
         event = ThisEvent(self.page)
@@ -70,25 +75,29 @@ class Test(TestCase):
         self.assertFalse(hasattr(self.page, "bar"))
         self.assertEqual(event.bar, "bar")
 
+
 # ------------------------------------------------------------------------------
 class TestBackCompat(TestCase):
     """
     ThisEvent maintains backwards compatibility with the namedtuple it used to be
     """
+
     def setUp(self):
-        self.home = Page.objects.get(slug='home')
-        self.user = User.objects.create_user('i', 'i@joy.test', 's3cr3t')
-        self.calendar = SpecificCalendarPage(owner = self.user,
-                                             slug  = "events",
-                                             title = "Events")
+        self.home = Page.objects.get(slug="home")
+        self.user = User.objects.create_user("i", "i@joy.test", "s3cr3t")
+        self.calendar = SpecificCalendarPage(
+            owner=self.user, slug="events", title="Events"
+        )
         self.home.add_child(instance=self.calendar)
         self.calendar.save_revision().publish()
-        self.page = SimpleEventPage(owner = self.user,
-                                    slug   = "agfest",
-                                    title  = "AgFest",
-                                    date   = dt.date(2015,6,5),
-                                    time_from = dt.time(11),
-                                    time_to   = dt.time(17,30))
+        self.page = SimpleEventPage(
+            owner=self.user,
+            slug="agfest",
+            title="AgFest",
+            date=dt.date(2015, 6, 5),
+            time_from=dt.time(11),
+            time_to=dt.time(17, 30),
+        )
         self.calendar.add_child(instance=self.page)
         self.page.save_revision().publish()
 
@@ -121,9 +130,9 @@ class TestBackCompat(TestCase):
     def testAsDict(self):
         event = ThisEvent("Mud mud mud", self.page, "/events/muddy/")
         attrs = event._asdict()
-        self.assertEqual(attrs['title'], "Mud mud mud")
-        self.assertEqual(attrs['page'], self.page)
-        self.assertEqual(attrs['url'], "/events/muddy/")
+        self.assertEqual(attrs["title"], "Mud mud mud")
+        self.assertEqual(attrs["page"], self.page)
+        self.assertEqual(attrs["url"], "/events/muddy/")
 
     def testQuery(self):
         events = list(SimpleEventPage.events.this())
@@ -133,6 +142,7 @@ class TestBackCompat(TestCase):
         self.assertEqual(event.title, "AgFest")
         self.assertEqual(event.page, self.page)
         self.assertEqual(event.url, "/events/agfest/")
+
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------

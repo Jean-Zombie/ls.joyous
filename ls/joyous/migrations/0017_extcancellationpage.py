@@ -2,31 +2,79 @@
 
 from django.db import migrations, models
 import django.db.models.deletion
-import wagtail.core.fields
+import wagtail.fields
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('joyous', '0016_closedfor_closedforholidayspage'),
+        ("joyous", "0016_closedfor_closedforholidayspage"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='ExtCancellationPage',
+            name="ExtCancellationPage",
             fields=[
-                ('page_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='wagtailcore.Page')),
-                ('cancellation_title', models.CharField(blank=True, help_text='Show in place of cancelled event (Leave empty to show nothing)', max_length=255, verbose_name='title')),
-                ('cancellation_details', wagtail.core.fields.RichTextField(blank=True, help_text='Why was the event cancelled?', verbose_name='details')),
-                ('cancelled_from_date', models.DateField(help_text='Cancelled from this date', verbose_name='From Date')),
-                ('cancelled_to_date', models.DateField(blank=True, help_text='Cancelled to this date (Leave empty for "until further notice")', null=True, verbose_name='To Date')),
-                ('overrides', models.ForeignKey(help_text='The recurring event that we are updating.', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to='joyous.RecurringEventPage', verbose_name='overrides')),
+                (
+                    "page_ptr",
+                    models.OneToOneField(
+                        auto_created=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        parent_link=True,
+                        primary_key=True,
+                        serialize=False,
+                        to="wagtailcore.Page",
+                    ),
+                ),
+                (
+                    "cancellation_title",
+                    models.CharField(
+                        blank=True,
+                        help_text="Show in place of cancelled event (Leave empty to show nothing)",
+                        max_length=255,
+                        verbose_name="title",
+                    ),
+                ),
+                (
+                    "cancellation_details",
+                    wagtail.fields.RichTextField(
+                        blank=True,
+                        help_text="Why was the event cancelled?",
+                        verbose_name="details",
+                    ),
+                ),
+                (
+                    "cancelled_from_date",
+                    models.DateField(
+                        help_text="Cancelled from this date", verbose_name="From Date"
+                    ),
+                ),
+                (
+                    "cancelled_to_date",
+                    models.DateField(
+                        blank=True,
+                        help_text='Cancelled to this date (Leave empty for "until further notice")',
+                        null=True,
+                        verbose_name="To Date",
+                    ),
+                ),
+                (
+                    "overrides",
+                    models.ForeignKey(
+                        help_text="The recurring event that we are updating.",
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to="joyous.RecurringEventPage",
+                        verbose_name="overrides",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'extended cancellation',
-                'verbose_name_plural': 'extended cancellations',
-                'default_manager_name': 'objects',
+                "verbose_name": "extended cancellation",
+                "verbose_name_plural": "extended cancellations",
+                "default_manager_name": "objects",
             },
-            bases=('wagtailcore.page', models.Model),
+            bases=("wagtailcore.page", models.Model),
         ),
     ]

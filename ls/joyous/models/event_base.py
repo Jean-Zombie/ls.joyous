@@ -13,14 +13,14 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import gettext
 from timezone_field import TimeZoneField
-from wagtail.core.models import Page, PageManager, PageViewRestriction
+from wagtail.models import Page, PageManager, PageViewRestriction
 
 try:
     from wagtail.query import PageQuerySet
 except ImportError:
-    from wagtail.core.query import PageQuerySet
-from wagtail.core.fields import RichTextField
-from wagtail.admin.edit_handlers import (
+    from wagtail.query import PageQuerySet
+from wagtail.fields import RichTextField
+from wagtail.admin.panels import (
     FieldPanel,
     PageChooserPanel,
     BaseCompositeEditHandler,

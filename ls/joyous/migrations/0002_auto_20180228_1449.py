@@ -3,23 +3,27 @@
 from __future__ import unicode_literals
 
 from django.db import migrations
-import wagtail.core.fields
+import wagtail.fields
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('joyous', '0001_initial'),
+        ("joyous", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='simpleeventpage',
-            options={'verbose_name': 'Event Page'},
+            name="simpleeventpage",
+            options={"verbose_name": "Event Page"},
         ),
         migrations.AlterField(
-            model_name='grouppage',
-            name='content',
-            field=wagtail.core.fields.RichTextField(blank=True, default='', help_text='An area of text for whatever you like'),
+            model_name="grouppage",
+            name="content",
+            field=wagtail.fields.RichTextField(
+                blank=True,
+                default="",
+                help_text="An area of text for whatever you like",
+            ),
         ),
     ]

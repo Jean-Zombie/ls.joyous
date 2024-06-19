@@ -13,11 +13,16 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib import messages
 from django.test import TestCase, RequestFactory
 from django.utils import timezone
-from wagtail.core.models import Site, Page
+from wagtail.models import Site, Page
 from ls.joyous.models.calendar import CalendarPage
-from ls.joyous.models import (SimpleEventPage, MultidayEventPage,
-        RecurringEventPage, CancellationPage, MultidayRecurringEventPage,
-        RescheduleMultidayEventPage)
+from ls.joyous.models import (
+    SimpleEventPage,
+    MultidayEventPage,
+    RecurringEventPage,
+    CancellationPage,
+    MultidayRecurringEventPage,
+    RescheduleMultidayEventPage,
+)
 from ls.joyous.models import getAllEvents
 from ls.joyous.utils.recurrence import Recurrence
 from ls.joyous.utils.recurrence import WEEKLY, MONTHLY, TU, SA
@@ -25,16 +30,15 @@ from ls.joyous.formats.ical import ICalHandler
 from freezegun import freeze_time
 from .testutils import datetimetz
 
+
 # ------------------------------------------------------------------------------
 class TestImport(TestCase):
     def setUp(self):
         Site.objects.update(hostname="joy.test")
-        self.home = Page.objects.get(slug='home')
-        self.user = User.objects.create_user('i', 'i@joy.test', 's3cr3t')
+        self.home = Page.objects.get(slug="home")
+        self.user = User.objects.create_user("i", "i@joy.test", "s3cr3t")
         self.requestFactory = RequestFactory()
-        self.calendar = CalendarPage(owner = self.user,
-                                     slug  = "events",
-                                     title = "Events")
+        self.calendar = CalendarPage(owner=self.user, slug="events", title="Events")
         self.home.add_child(instance=self.calendar)
         self.calendar.save_revision().publish()
         self.handler = ICalHandler()
@@ -46,12 +50,13 @@ class TestImport(TestCase):
         request.session = {}
         request._messages = FallbackStorage(request)
         request.POST = request.POST.copy()
-        request.POST['action-publish'] = "action-publish"
+        request.POST["action-publish"] = "action-publish"
         return request
 
     @freeze_time("2018-07-24 19:00:00")
     def testMeetup(self):
-        stream = BytesIO(b"""\
+        stream = BytesIO(
+            b"""\
 BEGIN:VCALENDAR\r
 VERSION:2.0\r
 PRODID:-//Meetup//RemoteApi//EN\r
@@ -98,28 +103,39 @@ URL:https://www.meetup.com/Code-for-Boston/events/249894034/\r
 LAST-MODIFIED:20180404T010420Z\r
 UID:event_xwqmnpyxkbgc@meetup.com\r
 END:VEVENT\r
-END:VCALENDAR""")
+END:VCALENDAR"""
+        )
         self.handler.load(self.calendar, self._getRequest(), stream)
         events = SimpleEventPage.events.child_of(self.calendar).all()
         self.assertEqual(len(events), 1)
         event = events[0]
-        self.assertEqual(event.owner,      self.user)
-        self.assertEqual(event.slug,       "weekly-hack-night")
-        self.assertEqual(event.title,      "Weekly Hack Night")
-        self.assertEqual(event.details,    "\n".join(["Code for Boston",
-            "Tuesday, July 24 at 7:00 PM", "",
-            "Our weekly work session will be at the Cambridge Innovation Center in Kendall Square"
-            ", on the FOURTH FLOOR, in the CAFE. These Hack Nights are our time...", "",
-            "https://www.meetup.com/Code-for-Boston/events/249894034/"]))
-        self.assertEqual(event.date,       dt.date(2018,7,24))
-        self.assertEqual(event.time_from,  dt.time(19))
-        self.assertEqual(event.time_to,    dt.time(21,30))
-        self.assertEqual(event.tz.zone,    "America/New_York")
+        self.assertEqual(event.owner, self.user)
+        self.assertEqual(event.slug, "weekly-hack-night")
+        self.assertEqual(event.title, "Weekly Hack Night")
+        self.assertEqual(
+            event.details,
+            "\n".join(
+                [
+                    "Code for Boston",
+                    "Tuesday, July 24 at 7:00 PM",
+                    "",
+                    "Our weekly work session will be at the Cambridge Innovation Center in Kendall Square"
+                    ", on the FOURTH FLOOR, in the CAFE. These Hack Nights are our time...",
+                    "",
+                    "https://www.meetup.com/Code-for-Boston/events/249894034/",
+                ]
+            ),
+        )
+        self.assertEqual(event.date, dt.date(2018, 7, 24))
+        self.assertEqual(event.time_from, dt.time(19))
+        self.assertEqual(event.time_to, dt.time(21, 30))
+        self.assertEqual(event.tz.zone, "America/New_York")
 
     @freeze_time("2018-02-01")
     @timezone.override("Pacific/Auckland")
     def testGoogleCalendar(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 PRODID:-//Google Inc//Google Calendar 70.9054//EN
 VERSION:2.0
@@ -263,7 +279,8 @@ SUMMARY:Conference Call
 TRANSP:OPAQUE
 END:VEVENT
 END:VCALENDAR
-""")
+"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream)
         msgs = list(messages.get_messages(request))
@@ -274,110 +291,129 @@ END:VCALENDAR
         self.assertEqual(len(events), 5)
         tueMorn, daysOff, lilWeds, cnfCall, bigThur = events
 
-        self.assertEqual(tueMorn.owner,      self.user)
-        self.assertEqual(tueMorn.slug,       "tuesday-mornings")
-        self.assertEqual(tueMorn.title,      "Tuesday Mornings")
-        self.assertEqual(tueMorn.details,    "\n".join(["",
-            "Fammulturacha matent theaminerviencess atinjuse it shin sue of "
-            "Aothips to ming an sed prage thnisithass invernships oftegruct "
-            "and encome. Taimen in grose to to ner grough ingin orgagences' "
-            "of Fries seed", "",
-            "Fritherovere Houps of custims analienessuppol. Tiriendindnew, "
-            "vality a gruccouser to be the juse Truch ince lity Te "
-            "therneramparcialues the the neshiplands tortandamength,  "
-            "Comene ups a mitioney dend peachassfy de are to entices meand "
-            "evelas of Friscerple th iseek arces a wind."]))
-        self.assertEqual(tueMorn.tz.zone,    "Pacific/Auckland")
-        self.assertEqual(tueMorn.time_from,  dt.time(9,30))
-        self.assertEqual(tueMorn.time_to,    dt.time(11,30))
-        self.assertEqual(tueMorn.location,   "Coast Rd, Barrytown, New Zealand")
-        self.assertEqual(tueMorn.when,
-            "Tuesdays (until 28 August 2018) at 9:30am to 11:30am")
+        self.assertEqual(tueMorn.owner, self.user)
+        self.assertEqual(tueMorn.slug, "tuesday-mornings")
+        self.assertEqual(tueMorn.title, "Tuesday Mornings")
+        self.assertEqual(
+            tueMorn.details,
+            "\n".join(
+                [
+                    "",
+                    "Fammulturacha matent theaminerviencess atinjuse it shin sue of "
+                    "Aothips to ming an sed prage thnisithass invernships oftegruct "
+                    "and encome. Taimen in grose to to ner grough ingin orgagences' "
+                    "of Fries seed",
+                    "",
+                    "Fritherovere Houps of custims analienessuppol. Tiriendindnew, "
+                    "vality a gruccouser to be the juse Truch ince lity Te "
+                    "therneramparcialues the the neshiplands tortandamength,  "
+                    "Comene ups a mitioney dend peachassfy de are to entices meand "
+                    "evelas of Friscerple th iseek arces a wind.",
+                ]
+            ),
+        )
+        self.assertEqual(tueMorn.tz.zone, "Pacific/Auckland")
+        self.assertEqual(tueMorn.time_from, dt.time(9, 30))
+        self.assertEqual(tueMorn.time_to, dt.time(11, 30))
+        self.assertEqual(tueMorn.location, "Coast Rd, Barrytown, New Zealand")
+        self.assertEqual(
+            tueMorn.when, "Tuesdays (until 28 August 2018) at 9:30am to 11:30am"
+        )
 
         tueExceptions = tueMorn.get_children()
         self.assertEqual(len(tueExceptions), 3)
         tue24th, tue31st, tue14th = [page.specific for page in tueExceptions]
 
-        self.assertEqual(tue24th.owner,      self.user)
-        self.assertEqual(tue24th.overrides,  tueMorn)
-        self.assertEqual(tue24th.slug,       "2018-07-24-postponement")
-        self.assertEqual(tue24th.title,      "Postponement for Tuesday 24th of July")
-        self.assertEqual(tue24th.details,    tueMorn.details)
-        self.assertEqual(tue24th.tz.zone,    "Pacific/Auckland")
-        self.assertEqual(tue24th.except_date,dt.date(2018,7,24))
-        self.assertEqual(tue24th.date,       dt.date(2018,7,25))
-        self.assertEqual(tue24th.time_from,  dt.time(9,30))
-        self.assertEqual(tue24th.time_to,    dt.time(11,30))
-        self.assertEqual(tue24th.location,   "Coast Rd, Barrytown, New Zealand")
+        self.assertEqual(tue24th.owner, self.user)
+        self.assertEqual(tue24th.overrides, tueMorn)
+        self.assertEqual(tue24th.slug, "2018-07-24-postponement")
+        self.assertEqual(tue24th.title, "Postponement for Tuesday 24th of July")
+        self.assertEqual(tue24th.details, tueMorn.details)
+        self.assertEqual(tue24th.tz.zone, "Pacific/Auckland")
+        self.assertEqual(tue24th.except_date, dt.date(2018, 7, 24))
+        self.assertEqual(tue24th.date, dt.date(2018, 7, 25))
+        self.assertEqual(tue24th.time_from, dt.time(9, 30))
+        self.assertEqual(tue24th.time_to, dt.time(11, 30))
+        self.assertEqual(tue24th.location, "Coast Rd, Barrytown, New Zealand")
 
-        self.assertEqual(tue31st.owner,      self.user)
-        self.assertEqual(tue31st.overrides,  tueMorn)
-        self.assertEqual(tue31st.slug,       "2018-07-31-extra-info")
-        self.assertEqual(tue31st.title,      "Extra-Info for Tuesday 31st of July")
-        self.assertEqual(tue31st.extra_title,"Tuesday Morning Extra Info")
-        self.assertEqual(tue31st.extra_information, "\n".join(["",
-            "Extra Famin fork, andivery,  Hough in the re of re whels "
-            "otedshiplue porturat inve in nurectic."]))
-        self.assertEqual(tue31st.tz.zone,    "Pacific/Auckland")
-        self.assertEqual(tue31st.except_date,dt.date(2018,7,31))
+        self.assertEqual(tue31st.owner, self.user)
+        self.assertEqual(tue31st.overrides, tueMorn)
+        self.assertEqual(tue31st.slug, "2018-07-31-extra-info")
+        self.assertEqual(tue31st.title, "Extra-Info for Tuesday 31st of July")
+        self.assertEqual(tue31st.extra_title, "Tuesday Morning Extra Info")
+        self.assertEqual(
+            tue31st.extra_information,
+            "\n".join(
+                [
+                    "",
+                    "Extra Famin fork, andivery,  Hough in the re of re whels "
+                    "otedshiplue porturat inve in nurectic.",
+                ]
+            ),
+        )
+        self.assertEqual(tue31st.tz.zone, "Pacific/Auckland")
+        self.assertEqual(tue31st.except_date, dt.date(2018, 7, 31))
 
-        self.assertEqual(tue14th.owner,      self.user)
-        self.assertEqual(tue14th.overrides,  tueMorn)
-        self.assertEqual(tue14th.slug,       "2018-08-14-cancellation")
-        self.assertEqual(tue14th.title,      "Cancellation for Tuesday 14th of August")
-        self.assertEqual(tue14th.cancellation_title,   "")
+        self.assertEqual(tue14th.owner, self.user)
+        self.assertEqual(tue14th.overrides, tueMorn)
+        self.assertEqual(tue14th.slug, "2018-08-14-cancellation")
+        self.assertEqual(tue14th.title, "Cancellation for Tuesday 14th of August")
+        self.assertEqual(tue14th.cancellation_title, "")
         self.assertEqual(tue14th.cancellation_details, "")
-        self.assertEqual(tue14th.tz.zone,    "Pacific/Auckland")
-        self.assertEqual(tue14th.except_date,dt.date(2018,8,14))
+        self.assertEqual(tue14th.tz.zone, "Pacific/Auckland")
+        self.assertEqual(tue14th.except_date, dt.date(2018, 8, 14))
 
-        self.assertEqual(daysOff.owner,      self.user)
-        self.assertEqual(daysOff.slug,       "three-days-off")
-        self.assertEqual(daysOff.title,      "Three days off")
-        self.assertEqual(daysOff.details,    "")
-        self.assertEqual(daysOff.tz.zone,    "Pacific/Auckland")
-        self.assertEqual(daysOff.date_from,  dt.date(2018,7,13))
-        self.assertEqual(daysOff.time_from,  None)
-        self.assertEqual(daysOff.date_to,    dt.date(2018,7,15))
-        self.assertEqual(daysOff.time_to,    None)
-        self.assertEqual(daysOff.location,   "Home")
+        self.assertEqual(daysOff.owner, self.user)
+        self.assertEqual(daysOff.slug, "three-days-off")
+        self.assertEqual(daysOff.title, "Three days off")
+        self.assertEqual(daysOff.details, "")
+        self.assertEqual(daysOff.tz.zone, "Pacific/Auckland")
+        self.assertEqual(daysOff.date_from, dt.date(2018, 7, 13))
+        self.assertEqual(daysOff.time_from, None)
+        self.assertEqual(daysOff.date_to, dt.date(2018, 7, 15))
+        self.assertEqual(daysOff.time_to, None)
+        self.assertEqual(daysOff.location, "Home")
 
-        self.assertEqual(lilWeds.owner,      self.user)
-        self.assertEqual(lilWeds.slug,       "little-wednesday")
-        self.assertEqual(lilWeds.title,      "Little Wednesday")
-        self.assertEqual(lilWeds.details,    "")
-        self.assertEqual(lilWeds.tz,         pytz.utc)
-        self.assertEqual(lilWeds.date,       dt.date(2018,7,17))
-        self.assertEqual(lilWeds.time_from,  dt.time(22))
-        self.assertEqual(lilWeds.time_to,    dt.time(22,30))
-        self.assertEqual(lilWeds.location,   "Pariroa Beach")
-        self.assertEqual(lilWeds.when,       "Wednesday 18th of July at 10am to 10:30am")
+        self.assertEqual(lilWeds.owner, self.user)
+        self.assertEqual(lilWeds.slug, "little-wednesday")
+        self.assertEqual(lilWeds.title, "Little Wednesday")
+        self.assertEqual(lilWeds.details, "")
+        self.assertEqual(lilWeds.tz, pytz.utc)
+        self.assertEqual(lilWeds.date, dt.date(2018, 7, 17))
+        self.assertEqual(lilWeds.time_from, dt.time(22))
+        self.assertEqual(lilWeds.time_to, dt.time(22, 30))
+        self.assertEqual(lilWeds.location, "Pariroa Beach")
+        self.assertEqual(lilWeds.when, "Wednesday 18th of July at 10am to 10:30am")
 
-        self.assertEqual(cnfCall.owner,      self.user)
-        self.assertEqual(cnfCall.slug,       "conference-call")
-        self.assertEqual(cnfCall.title,      "Conference Call")
-        self.assertEqual(cnfCall.details,    "")
-        self.assertEqual(cnfCall.tz,         pytz.utc)
-        self.assertEqual(cnfCall.date,       dt.date(2018,7,23))
-        self.assertEqual(cnfCall.time_from,  dt.time(19))
-        self.assertEqual(cnfCall.time_to,    dt.time(20))
+        self.assertEqual(cnfCall.owner, self.user)
+        self.assertEqual(cnfCall.slug, "conference-call")
+        self.assertEqual(cnfCall.title, "Conference Call")
+        self.assertEqual(cnfCall.details, "")
+        self.assertEqual(cnfCall.tz, pytz.utc)
+        self.assertEqual(cnfCall.date, dt.date(2018, 7, 23))
+        self.assertEqual(cnfCall.time_from, dt.time(19))
+        self.assertEqual(cnfCall.time_to, dt.time(20))
 
-        self.assertEqual(bigThur.owner,      self.user)
-        self.assertEqual(bigThur.slug,       "big-thursday")
-        self.assertEqual(bigThur.title,      "Big Thursday")
-        self.assertEqual(bigThur.details,
+        self.assertEqual(bigThur.owner, self.user)
+        self.assertEqual(bigThur.slug, "big-thursday")
+        self.assertEqual(bigThur.title, "Big Thursday")
+        self.assertEqual(
+            bigThur.details,
             "Hounit <b>catlike</b> at ethatial to thin a usistiques onshiend "
-            "alits mily tente duse prommuniss ind sedships itommunte of perpollood.")
-        self.assertEqual(bigThur.tz,         pytz.utc)
-        self.assertEqual(bigThur.date_from,  dt.date(2018,7,25))
-        self.assertEqual(bigThur.time_from,  dt.time(21))
-        self.assertEqual(bigThur.date_to,    dt.date(2018,7,26))
-        self.assertEqual(bigThur.time_to,    dt.time(8,30))
-        self.assertEqual(bigThur.when,       "Thursday 26th of July at 9am to 8:30pm")
+            "alits mily tente duse prommuniss ind sedships itommunte of perpollood.",
+        )
+        self.assertEqual(bigThur.tz, pytz.utc)
+        self.assertEqual(bigThur.date_from, dt.date(2018, 7, 25))
+        self.assertEqual(bigThur.time_from, dt.time(21))
+        self.assertEqual(bigThur.date_to, dt.date(2018, 7, 26))
+        self.assertEqual(bigThur.time_to, dt.time(8, 30))
+        self.assertEqual(bigThur.when, "Thursday 26th of July at 9am to 8:30pm")
 
     @freeze_time("2018-02-01")
     @timezone.override("Pacific/Auckland")
     def testUtc2Local(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 PRODID:-//Google Inc//Google Calendar 70.9054//EN
 VERSION:2.0
@@ -402,24 +438,27 @@ SUMMARY:Big Thursday
 TRANSP:OPAQUE
 END:VEVENT
 END:VCALENDAR
-""")
+"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream, utc2local=True)
         events = getAllEvents(request, home=self.calendar)
         self.assertEqual(len(events), 1)
         bigThur = events[0]
-        self.assertEqual(bigThur.owner,      self.user)
-        self.assertEqual(bigThur.slug,       "big-thursday")
-        self.assertEqual(bigThur.title,      "Big Thursday")
-        self.assertEqual(bigThur.details,
+        self.assertEqual(bigThur.owner, self.user)
+        self.assertEqual(bigThur.slug, "big-thursday")
+        self.assertEqual(bigThur.title, "Big Thursday")
+        self.assertEqual(
+            bigThur.details,
             "Hounit <b>catlike</b> at ethatial to thin a usistiques onshiend "
-            "alits mily tente duse prommuniss ind sedships itommunte of perpollood.")
-        self.assertEqual(bigThur.tz.zone,    "Australia/Sydney")
-        self.assertEqual(bigThur.date_from,  dt.date(2018,7,26))
-        self.assertEqual(bigThur.time_from,  dt.time(7))
-        self.assertEqual(bigThur.date_to,    dt.date(2018,7,26))
-        self.assertEqual(bigThur.time_to,    dt.time(18,30))
-        self.assertEqual(bigThur.when,       "Thursday 26th of July at 9am to 8:30pm")
+            "alits mily tente duse prommuniss ind sedships itommunte of perpollood.",
+        )
+        self.assertEqual(bigThur.tz.zone, "Australia/Sydney")
+        self.assertEqual(bigThur.date_from, dt.date(2018, 7, 26))
+        self.assertEqual(bigThur.time_from, dt.time(7))
+        self.assertEqual(bigThur.date_to, dt.date(2018, 7, 26))
+        self.assertEqual(bigThur.time_to, dt.time(18, 30))
+        self.assertEqual(bigThur.when, "Thursday 26th of July at 9am to 8:30pm")
 
     def testZipFile(self):
         path = "{}/djm@software.net.nz.ical.zip".format(settings.TEST_IMPORT_DIR)
@@ -439,7 +478,7 @@ END:VCALENDAR
         msgs = list(messages.get_messages(request))
         self.assertEqual(len(msgs), 1)
         self.assertEqual(msgs[0].level, messages.ERROR)
-        self.assertEqual(msgs[0].message, "Could not parse iCalendar file "+path)
+        self.assertEqual(msgs[0].message, "Could not parse iCalendar file " + path)
 
     def testZippedInvalidFile(self):
         path = "{}/foobar.ical.zip".format(settings.TEST_IMPORT_DIR)
@@ -449,13 +488,16 @@ END:VCALENDAR
         msgs = list(messages.get_messages(request))
         self.assertEqual(len(msgs), 2)
         self.assertEqual(msgs[0].level, messages.ERROR)
-        self.assertEqual(msgs[0].message,
-                         "Could not parse iCalendar file foobar@group.calendar.google.com.ics")
+        self.assertEqual(
+            msgs[0].message,
+            "Could not parse iCalendar file foobar@group.calendar.google.com.ics",
+        )
         self.assertEqual(msgs[1].level, messages.SUCCESS)
         self.assertEqual(msgs[1].message, "1 iCal events loaded")
 
     def testOutlook(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 PRODID:-//Microsoft Corporation//Outlook 11.0 MIMEDIR//EN
 VERSION:2.0
@@ -494,37 +536,56 @@ DESCRIPTION:Reminder
 END:VALARM
 END:VEVENT
 END:VCALENDAR
-""")
+"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream)
         events = [page.specific for page in self.calendar.get_children()]
         self.assertEqual(len(events), 2)
         flight1, flight2 = events
 
-        self.assertEqual(flight1.slug,       "sounds-air-flight-reminder")
-        self.assertEqual(flight1.title,      "Sounds Air - Flight Reminder")
-        self.assertEqual(flight1.details,    "\r\n".join(["Booking number 9876543",
-            "", "Your outgoing route is Westport > Wellington.",
-            "This route departs Westport on 30/Jul/2018 09:25 and arrives at "
-            "Wellington at 10:15. The check-in time is 08:55.\n"]))
-        self.assertEqual(flight1.tz.zone,    "Asia/Tokyo")
-        self.assertEqual(flight1.date,       dt.date(2018,7,30))
-        self.assertEqual(flight1.time_from,  dt.time(9,25))
-        self.assertEqual(flight1.time_to,    dt.time(10,15))
+        self.assertEqual(flight1.slug, "sounds-air-flight-reminder")
+        self.assertEqual(flight1.title, "Sounds Air - Flight Reminder")
+        self.assertEqual(
+            flight1.details,
+            "\r\n".join(
+                [
+                    "Booking number 9876543",
+                    "",
+                    "Your outgoing route is Westport > Wellington.",
+                    "This route departs Westport on 30/Jul/2018 09:25 and arrives at "
+                    "Wellington at 10:15. The check-in time is 08:55.\n",
+                ]
+            ),
+        )
+        self.assertEqual(flight1.tz.zone, "Asia/Tokyo")
+        self.assertEqual(flight1.date, dt.date(2018, 7, 30))
+        self.assertEqual(flight1.time_from, dt.time(9, 25))
+        self.assertEqual(flight1.time_to, dt.time(10, 15))
 
-        self.assertEqual(flight2.slug,       "sounds-air-flight-reminder-2")
-        self.assertEqual(flight2.title,      "Sounds Air - Flight Reminder")
-        self.assertEqual(flight2.details,    "\r\n".join(["Booking number 9876543",
-            "", "", "Your return route is Wellington > Westport.",
-            "This route departs Wellington on 31/Jul/2018 08:15 and arrives at "
-            "Westport at 09:00. The check-in time is 07:45.\n"]))
-        self.assertEqual(flight2.tz.zone,    "Asia/Tokyo")
-        self.assertEqual(flight2.date,       dt.date(2018,7,31))
-        self.assertEqual(flight2.time_from,  dt.time(8,15))
-        self.assertEqual(flight2.time_to,    dt.time(9))
+        self.assertEqual(flight2.slug, "sounds-air-flight-reminder-2")
+        self.assertEqual(flight2.title, "Sounds Air - Flight Reminder")
+        self.assertEqual(
+            flight2.details,
+            "\r\n".join(
+                [
+                    "Booking number 9876543",
+                    "",
+                    "",
+                    "Your return route is Wellington > Westport.",
+                    "This route departs Wellington on 31/Jul/2018 08:15 and arrives at "
+                    "Westport at 09:00. The check-in time is 07:45.\n",
+                ]
+            ),
+        )
+        self.assertEqual(flight2.tz.zone, "Asia/Tokyo")
+        self.assertEqual(flight2.date, dt.date(2018, 7, 31))
+        self.assertEqual(flight2.time_from, dt.time(8, 15))
+        self.assertEqual(flight2.time_to, dt.time(9))
 
     def testFacebook(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 PRODID:-//Facebook//NONSGML Facebook Events V1.0//EN
 X-PUBLISHED-TTL:PT12H
@@ -563,30 +624,39 @@ STATUS:CONFIRMED
 PARTSTAT:NEEDS-ACTION
 END:VEVENT
 END:VCALENDAR
-""")
+"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream)
         events = self.calendar.get_children()
         self.assertEqual(len(events), 1)
         event = events[0].specific
 
-        self.assertEqual(event.slug,       "photo-comp-prize-giving")
-        self.assertEqual(event.title,      "Photo Comp - Prize Giving")
-        self.assertEqual(event.details,    "\n".join([
-            "The much anticipated 2018 West Coast Alpine Club is open!",
-            "Entries close midnight Friday 24th August. Full details and "
-            "entry form in the linked PDF: https://www.dropbox.com/s/"
-            "5vxnep33ccxok9z/PhotoCompDetails.pdf?dl=0",
-            "Details of the prize giving will be added here in due course, "
-            "but save the date in the mean time.", "",
-            "https://www.facebook.com/events/501511573641525/"]))
-        self.assertEqual(event.tz.zone,    "UTC")
-        self.assertEqual(event.date,       dt.date(2018,8,31))
-        self.assertEqual(event.time_from,  dt.time(7))
-        self.assertEqual(event.time_to,    dt.time(10))
+        self.assertEqual(event.slug, "photo-comp-prize-giving")
+        self.assertEqual(event.title, "Photo Comp - Prize Giving")
+        self.assertEqual(
+            event.details,
+            "\n".join(
+                [
+                    "The much anticipated 2018 West Coast Alpine Club is open!",
+                    "Entries close midnight Friday 24th August. Full details and "
+                    "entry form in the linked PDF: https://www.dropbox.com/s/"
+                    "5vxnep33ccxok9z/PhotoCompDetails.pdf?dl=0",
+                    "Details of the prize giving will be added here in due course, "
+                    "but save the date in the mean time.",
+                    "",
+                    "https://www.facebook.com/events/501511573641525/",
+                ]
+            ),
+        )
+        self.assertEqual(event.tz.zone, "UTC")
+        self.assertEqual(event.date, dt.date(2018, 8, 31))
+        self.assertEqual(event.time_from, dt.time(7))
+        self.assertEqual(event.time_to, dt.time(10))
 
     def testUntilTZ(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 PRODID:-//Google Inc//Google Calendar 70.9054//EN
 VERSION:2.0
@@ -627,24 +697,26 @@ STATUS:CONFIRMED
 SUMMARY:Exercise
 TRANSP:OPAQUE
 END:VEVENT
-END:VCALENDAR""")
+END:VCALENDAR"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream)
         events = self.calendar.get_children()
         self.assertEqual(len(events), 1)
         event = events[0].specific
 
-        self.assertIs(type(event),         RecurringEventPage)
-        self.assertEqual(event.slug,       "exercise")
-        self.assertEqual(event.tz.zone,    "America/New_York")
-        self.assertEqual(event.time_from,  dt.time(5))
-        self.assertEqual(event.time_to,    dt.time(7))
+        self.assertIs(type(event), RecurringEventPage)
+        self.assertEqual(event.slug, "exercise")
+        self.assertEqual(event.tz.zone, "America/New_York")
+        self.assertEqual(event.time_from, dt.time(5))
+        self.assertEqual(event.time_to, dt.time(7))
         self.assertEqual(event.repeat.getCount(), 7)
-        self.assertTrue(event._occursOn(dt.date(2031,1,1)))
-        self.assertFalse(event._occursOn(dt.date(2031,1,8)))
+        self.assertTrue(event._occursOn(dt.date(2031, 1, 1)))
+        self.assertFalse(event._occursOn(dt.date(2031, 1, 8)))
 
     def testMultidayRecurringEvent(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//linuxsoftware.nz//NONSGML Joyous v0.8//EN
@@ -686,22 +758,24 @@ TZOFFSETFROM:+1300
 TZOFFSETTO:+1200
 END:STANDARD
 END:VTIMEZONE
-END:VCALENDAR""")
+END:VCALENDAR"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream)
         events = self.calendar.get_children()
         self.assertEqual(len(events), 1)
         event = events[0].specific
 
-        self.assertIs(type(event),         MultidayRecurringEventPage)
-        self.assertEqual(event.title,      "Bought from a Rubber Man")
-        self.assertEqual(event.tz.zone,    "Pacific/Auckland")
-        self.assertEqual(event.num_days,   3)
-        self.assertEqual(event.time_from,  dt.time(16))
-        self.assertEqual(event.time_to,    dt.time(18))
+        self.assertIs(type(event), MultidayRecurringEventPage)
+        self.assertEqual(event.title, "Bought from a Rubber Man")
+        self.assertEqual(event.tz.zone, "Pacific/Auckland")
+        self.assertEqual(event.num_days, 3)
+        self.assertEqual(event.time_from, dt.time(16))
+        self.assertEqual(event.time_to, dt.time(18))
 
     def testMultidayRescheduleEvent(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//linuxsoftware.nz//NONSGML Joyous v0.9//EN
@@ -771,33 +845,34 @@ LAST-MODIFIED:20200101T012044Z
 LOCATION:
 URL:http://localhost/calendar/colour/2020-01-15-postponement/
 END:VEVENT
-END:VCALENDAR""")
+END:VCALENDAR"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream)
         events = self.calendar.get_children()
         self.assertEqual(len(events), 1)
         event = events[0].specific
-        self.assertIs(type(event),          MultidayRecurringEventPage)
-        self.assertEqual(event.title,       "Colour In")
-        self.assertEqual(event.details,     "<h2>Paint that scene.</h2>")
-        self.assertEqual(event.tz.zone,     "Pacific/Auckland")
-        self.assertEqual(event.num_days,    2)
-        self.assertEqual(event.time_from,   dt.time(10,30))
-        self.assertEqual(event.time_to,     dt.time(14))
+        self.assertIs(type(event), MultidayRecurringEventPage)
+        self.assertEqual(event.title, "Colour In")
+        self.assertEqual(event.details, "<h2>Paint that scene.</h2>")
+        self.assertEqual(event.tz.zone, "Pacific/Auckland")
+        self.assertEqual(event.num_days, 2)
+        self.assertEqual(event.time_from, dt.time(10, 30))
+        self.assertEqual(event.time_to, dt.time(14))
         exceptions = event.get_children()
-        self.assertEqual(len(exceptions),   2)
+        self.assertEqual(len(exceptions), 2)
         resched = exceptions[0].specific
-        self.assertIs(type(resched),        RescheduleMultidayEventPage)
+        self.assertIs(type(resched), RescheduleMultidayEventPage)
         self.assertEqual(resched.postponement_title, "Knock")
-        self.assertEqual(resched.num_days,  2)
+        self.assertEqual(resched.num_days, 2)
         self.assertEqual(resched.time_from, dt.time(11))
-        self.assertEqual(resched.time_to,   dt.time(14))
+        self.assertEqual(resched.time_to, dt.time(14))
         resched = exceptions[1].specific
-        self.assertIs(type(resched),        RescheduleMultidayEventPage)
+        self.assertIs(type(resched), RescheduleMultidayEventPage)
         self.assertEqual(resched.postponement_title, "Change")
-        self.assertEqual(resched.num_days,  1)
+        self.assertEqual(resched.num_days, 1)
         self.assertEqual(resched.time_from, dt.time(11))
-        self.assertEqual(resched.time_to,   dt.time(14,30))
+        self.assertEqual(resched.time_to, dt.time(14, 30))
 
     def testLoadInvalidFile(self):
         stream = BytesIO(rb"""FOO:BAR:SNAFU""")
@@ -810,7 +885,8 @@ END:VCALENDAR""")
         self.assertEqual(msg.message, "Could not parse iCalendar file ")
 
     def testLoadEventMissingUID(self):
-        stream = BytesIO(rb"""
+        stream = BytesIO(
+            rb"""
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Bloor &amp; Spadina - ECPv4.6.13//NONSGML v1.0//EN
@@ -829,11 +905,15 @@ SUMMARY:Mini-Fair & Garage Sale
 DESCRIPTION:
 URL:http://bloorneighbours.ca/event/mini-fair-garage-sale/
 END:VEVENT
-END:VCALENDAR""")
+END:VCALENDAR"""
+        )
         request = self._getRequest()
         self.handler.load(self.calendar, request, stream)
-        events = SimpleEventPage.events.child_of(self.calendar)            \
-                                       .filter(date=dt.date(2018,4,7)).all()
+        events = (
+            SimpleEventPage.events.child_of(self.calendar)
+            .filter(date=dt.date(2018, 4, 7))
+            .all()
+        )
         self.assertEqual(len(events), 0)
         msgs = list(messages.get_messages(request))
         self.assertEqual(len(msgs), 1)
@@ -841,29 +921,32 @@ END:VCALENDAR""")
         self.assertEqual(msg.level, messages.ERROR)
         self.assertEqual(msg.message, "Could not load 1 iCal events")
 
+
 # ------------------------------------------------------------------------------
 class TestExport(TestCase):
     def setUp(self):
         Site.objects.update(hostname="joy.test")
-        self.home = Page.objects.get(slug='home')
-        self.user = User.objects.create_user('i', 'i@joy.test', 's3(R3t')
+        self.home = Page.objects.get(slug="home")
+        self.user = User.objects.create_user("i", "i@joy.test", "s3(R3t")
         self.requestFactory = RequestFactory()
-        self.calendar = CalendarPage(owner = self.user,
-                                     slug  = "events",
-                                     title = "Events")
+        self.calendar = CalendarPage(owner=self.user, slug="events", title="Events")
         self.home.add_child(instance=self.calendar)
         self.calendar.save_revision().publish()
-        self.dicerun = SimpleEventPage(owner = self.user,
-                                       slug  = "mercy-dice-run",
-                                       title = "Mercy Dice Run",
-                                       date  = dt.date(2020,3,16),
-                                       location = "Newtown")
+        self.dicerun = SimpleEventPage(
+            owner=self.user,
+            slug="mercy-dice-run",
+            title="Mercy Dice Run",
+            date=dt.date(2020, 3, 16),
+            location="Newtown",
+        )
         self.calendar.add_child(instance=self.dicerun)
         self.dicerun.save_revision().publish()
-        event = SimpleEventPage(owner = self.user,
-                                slug  = "workshop",
-                                title = "Workshop",
-                                date  = dt.date(2020,3,22))
+        event = SimpleEventPage(
+            owner=self.user,
+            slug="workshop",
+            title="Workshop",
+            date=dt.date(2020, 3, 22),
+        )
         self.calendar.add_child(instance=event)
         event.save_revision().publish()
         self.handler = ICalHandler()
@@ -875,25 +958,28 @@ class TestExport(TestCase):
         request.session = {}
         request._messages = FallbackStorage(request)
         request.POST = request.POST.copy()
-        request.POST['action-publish'] = "action-publish"
+        request.POST["action-publish"] = "action-publish"
         return request
 
     def testServeCalendar(self):
-        response = self.handler.serve(self.calendar,
-                                      self._getRequest("/events/"))
+        response = self.handler.serve(self.calendar, self._getRequest("/events/"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get('Content-Type'), "text/calendar")
-        self.assertEqual(response.get('Content-Disposition'),
-                         "attachment; filename=events.ics")
+        self.assertEqual(response.get("Content-Type"), "text/calendar")
+        self.assertEqual(
+            response.get("Content-Disposition"), "attachment; filename=events.ics"
+        )
         self.assertEqual(response.content.count(b"BEGIN:VEVENT"), 2)
 
     def testServeEvent(self):
-        response = self.handler.serve(self.dicerun,
-                                      self._getRequest("/events/mercy-dice-run/"))
+        response = self.handler.serve(
+            self.dicerun, self._getRequest("/events/mercy-dice-run/")
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get('Content-Type'), "text/calendar")
-        self.assertEqual(response.get('Content-Disposition'),
-                         "attachment; filename=mercy-dice-run.ics")
+        self.assertEqual(response.get("Content-Type"), "text/calendar")
+        self.assertEqual(
+            response.get("Content-Disposition"),
+            "attachment; filename=mercy-dice-run.ics",
+        )
         self.assertEqual(response.content.count(b"BEGIN:VEVENT"), 1)
         self.assertIn(b"SUMMARY:Mercy Dice Run", response.content)
         self.assertIn(b"DTSTART;TZID=Asia/Tokyo:20200316T000000", response.content)
@@ -904,6 +990,7 @@ class TestExport(TestCase):
     def testServePage(self):
         response = self.handler.serve(self.home, self._getRequest("/"))
         self.assertIsNone(response)
+
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
