@@ -12,14 +12,14 @@ Install the package.
 
     $ pip install ls.joyous
 
-Add ls.joyous and wagtail.contrib.modeladmin to your INSTALLED_APPS.
+Add ls.joyous and wagtail_modeladmin to your INSTALLED_APPS.
 
 .. code-block:: python
 
     INSTALLED_APPS = [
         ...
         'ls.joyous',
-        'wagtail.contrib.modeladmin',
+        'wagtail_modeladmin',
         ...
     ]
 

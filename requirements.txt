@@ -1,6 +1,7 @@
 pip
 Django
 wagtail
+wagtail-modeladmin
 
 django-timezone-field
 num2words>=0.5.10
