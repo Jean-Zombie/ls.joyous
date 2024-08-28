@@ -33,3 +33,4 @@ scratch/
 secret.ini
 secret.py
 ls/joyous/tests/test-media/
+.DS_Store
